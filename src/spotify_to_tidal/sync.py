@@ -296,7 +296,7 @@ async def sync_playlist(spotify_session: spotipy.Spotify, tidal_session: tidalap
         old_tidal_tracks = await get_all_playlist_tracks(tidal_playlist)
     else:
         print(f"No playlist found on Tidal corresponding to Spotify playlist: '{spotify_playlist['name']}', creating new playlist")
-        tidal_playlist =  tidal_session.user.create_playlist(spotify_playlist['name'], spotify_playlist['description'])
+        tidal_playlist = tidal_session.user.create_playlist(spotify_playlist['name'],spotify_playlist.get('description', ''))
         old_tidal_tracks = []
 
     # Extract the new tracks from the playlist that we haven't already seen before
@@ -390,10 +390,12 @@ async def get_playlists_from_spotify(spotify_session: spotipy.Spotify, config):
         for extra_result in extra_results:
             playlists.extend([p for p in extra_result['items']])
 
-    # filter out playlists that don't belong to us or are on the exclude list
-    my_playlist_filter = lambda p: p and p['owner']['id'] == user_id
-    exclude_filter = lambda p: not p['id'] in exclude_list
-    return list(filter( exclude_filter, filter( my_playlist_filter, playlists )))
+    # # filter out playlists that don't belong to us or are on the exclude list
+    if config.get('include_subscribed_playlists', True):
+        filter_fn = lambda p: p and p['id'] not in exclude_list
+    else:
+        filter_fn = lambda p: p and p['owner']['id'] == user_id and p['id'] not in exclude_list
+    return list(filter(filter_fn, playlists))
 
 def get_playlists_from_config(spotify_session: spotipy.Spotify, tidal_session: tidalapi.Session, config):
     # get the list of playlist sync mappings from the configuration file
